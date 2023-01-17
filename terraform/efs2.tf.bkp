@@ -1,0 +1,40 @@
+resource "aws_efs_file_system" "efs" {
+  creation_token = "efs"
+  tags = {
+    Name = "storage"
+  }
+}
+
+
+resource "aws_efs_mount_target" "efs_mount" {
+  depends_on = [
+    aws_efs_file_system.efs
+  ]
+  file_system_id  = aws_efs_file_system.efs.id
+  count           = "${length(module.vpc.azs)}"
+  #subnet_id      = "${data.aws_subnet.app_subnet_0.*.id[count.index]}"
+  subnet_id       = "[element(module.vpc.private_subnets, 0), element(module.vpc.private_subnets, 1)]"
+  #subnet_id       = "module.vpc.private_subnets"
+  #security_groups = ["${aws_security_group.efs_sg.id}"]
+}
+
+resource "aws_security_group" "efs-sg" {
+   name = "efs-sg"
+   description= "Allos inbound efs traffic from ec2"
+   vpc_id = module.vpc.vpc_id
+
+   ingress {
+     security_groups = [aws_security_group.Security-magento-abhay.id]
+     from_port = 2049
+     to_port = 2049 
+     protocol = "tcp"
+   }     
+        
+   egress {
+     security_groups = [aws_security_group.Security-magento-abhay.id]
+     from_port = 0
+     to_port = 0
+     protocol = "-1"
+   }
+ }
+
