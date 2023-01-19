@@ -1,0 +1,52 @@
+ module "efs" {
+      source                    = "clouddrove/efs/aws"
+      version                   = "1.3.0"
+      name                      = "efs"
+      creation_token            = "efs-token"
+      region                    = local.region
+      availability_zones        = ["${local.region}a", "${local.region}b"]
+      vpc_id                    = module.vpc.vpc_id
+      subnets                   = module.vpc.private_subnets
+      security_groups           = [resource.aws_security_group.efs-sg.id]
+      efs_backup_policy_enabled = true
+    }
+  
+resource "aws_security_group" "efs-sg" {
+   name = "efs-sg"
+   description= "Allos inbound efs traffic from ec2"
+   vpc_id = module.vpc.vpc_id
+
+   ingress {
+     security_groups = [aws_security_group.Security-magento-abhay.id]
+     from_port = 2049
+     to_port = 2049 
+     protocol = "tcp"
+   }     
+        
+   egress {
+     security_groups = [aws_security_group.Security-magento-abhay.id]
+     from_port = 0
+     to_port = 0
+     protocol = "-1"
+   }
+ }
+
+resource "null_resource" "configure_nfs" {
+#depends_on = [aws_efs_mount_target.efs]
+connection {
+type     = "ssh"
+user     = "ubuntu"
+key_name = "/home/abhay/Downloads/terrafom.pem"
+#private_key = tls_private_key.my_key.private_key_pem
+host     = asg.name.private_ip
+ }
+}
+provisioner "remote-exec" {
+inline = [
+# Mounting Efs 
+"sudo mount -t nfs -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${aws_efs_file_system.efs.dns_name}:/  /var/www/html",
+# Making Mount Permanent
+"echo ${aws_efs_file_system.efs.dns_name}:/ /var/www/html nfs4 defaults,_netdev 0 0  | sudo cat >> /etc/fstab " ,
+  ]
+ }
+   
